@@ -71,4 +71,3 @@ If Octave changes its JSON schema or token method, inspect:
 and update the normalizer/token extraction accordingly.
 
 Do not put Octave tokens into logs or source control.
-# octaveadapter
