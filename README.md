@@ -71,3 +71,7 @@ If Octave changes its JSON schema or token method, inspect:
 and update the normalizer/token extraction accordingly.
 
 Do not put Octave tokens into logs or source control.
+
+
+### Search note
+Octave currently returns HTTP 403 to server-side search requests from Render. This version uses Deezer's public track metadata search for discovery, then uses the current Octave playback-token and lossless endpoints for playback. Octave's current release notes explicitly reference Deezer as its catalog/source.

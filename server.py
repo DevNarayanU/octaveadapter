@@ -9,8 +9,8 @@ app = Flask(__name__)
 
 # Current Octave web-app endpoints observed from the browser network requests.
 SEARCH_URL = os.getenv(
-    "OCTAVE_SEARCH_URL",
-    "https://api.octavestreaming.com/page",
+    "SEARCH_URL",
+    "https://api.deezer.com/search/track",
 )
 TOKEN_URL = os.getenv(
     "OCTAVE_TOKEN_URL",
@@ -41,7 +41,7 @@ track_cache = {}
 MANIFEST = {
     "id": "dev.octave.bitchord",
     "name": "Octave Lossless",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "resources": ["search", "stream"],
     "allowDownloads": 0,
     "checkValidLossless": 0,
@@ -147,7 +147,7 @@ def health():
     return jsonify({
         "ok": True,
         "service": "octave-bitchord-addon",
-        "version": "1.2.0",
+        "version": "1.3.0",
     })
 
 
@@ -159,12 +159,14 @@ def search():
         return jsonify({"tracks": []})
 
     try:
-        # Current Octave music search endpoint observed in the web app:
-        # /page?query=<q>&limit=30
+        # Octave's current web search is protected against server-side
+        # requests (Render receives HTTP 403).  Octave's own current catalog
+        # uses Deezer track IDs; the IDs returned by Deezer therefore map to
+        # the same Octave /audio/lossless track IDs.
         r = session.get(
             SEARCH_URL,
             params={
-                "query": q,
+                "q": q,
                 "limit": SEARCH_LIMIT,
             },
             timeout=20,
@@ -173,10 +175,28 @@ def search():
         data = r.json()
 
         tracks = []
-
-        # Current Octave /page response contains music in `tracks`.
-        for item in data.get("tracks", []):
-            track = make_track(item, "track")
+        for item in data.get("data", []):
+            # Normalize Deezer's metadata into the BitChord schema.
+            if not isinstance(item, dict) or not item.get("id") or not item.get("title"):
+                continue
+            artist_obj = item.get("artist") or {}
+            album_obj = item.get("album") or {}
+            normalized = {
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "artist": artist_obj.get("name", "") if isinstance(artist_obj, dict) else str(artist_obj),
+                "album": album_obj.get("title", "") if isinstance(album_obj, dict) else str(album_obj),
+                "duration": item.get("duration", 0),
+            }
+            if isinstance(album_obj, dict):
+                normalized["album"] = {
+                    "title": album_obj.get("title", ""),
+                    "cover_small": album_obj.get("cover_small", ""),
+                    "cover_medium": album_obj.get("cover_medium", ""),
+                    "cover_big": album_obj.get("cover_big", ""),
+                    "cover_xl": album_obj.get("cover_xl", ""),
+                }
+            track = make_track(normalized, "track")
             if track:
                 tracks.append(track)
 
